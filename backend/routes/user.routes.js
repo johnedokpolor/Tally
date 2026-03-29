@@ -1,7 +1,20 @@
 import express from "express";
-import { getUserProfile } from "../controllers/user.controller.js";
+import {
+  followUser,
+  getCurrentUser,
+  getUserProfile,
+  syncUser,
+  updateProfile,
+} from "../controllers/user.controller.js";
+import { protectRoute } from "../middlewares/auth.middleware.js";
 const router = express.Router();
 
 router.get("/profile/:username", getUserProfile);
+
+// Protected Routes
+router.post("/sync", protectRoute, syncUser);
+router.post("/me", protectRoute, getCurrentUser);
+router.put("/profile/", protectRoute, updateProfile);
+router.post("/follow/:targerUserId", protectRoute, followUser);
 
 export default router;

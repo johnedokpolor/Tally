@@ -1,16 +1,118 @@
 import asyncHandler from "../middlewares/asyncHandler.js";
-import responseHandler from "../middlewares/errorHandler.js";
+import responseHandler from "../middlewares/responseHandler.js";
+import errorHandler from "../middlewares/errorHandler.js";
 import { User } from "../models/user.model.js";
+import { Notification } from "../models/notification.model.js";
+import { clerkClient, getAuth } from "@clerk/express";
 
 const getUserProfile = asyncHandler(async (req, res) => {
   const { username } = req.params;
   const user = await User.findOne({ userName: username });
 
   if (!user) {
-    return responseHandler(res, 404, "Usfer not found");
+    return errorHandler(res, "User Not Found", 404);
   }
 
-  return res.json({ success: true, data: user });
+  return responseHandler(res, 200, "User Gotten Successfully", user);
 });
 
-export { getUserProfile };
+const updateProfile = asyncHandler(async (req, res) => {
+  const { userId } = getAuth(req);
+  const user = await User.findOneAndUpdate({ clerkId: userId }, req.body, {
+    new: true,
+  });
+  if (!user) errorHandler(res, "User Not Found", 404);
+  return responseHandler(res, 200, "User Updated Successfully", user);
+});
+
+const syncUser = asyncHandler(async (req, res) => {
+  const { userId } = getAuth(req);
+
+  // Check if user exists in mongodb
+  const existingUser = await User.findOne({ clerkId: userId });
+  if (existingUser) {
+    return responseHandler(res, 200, "User Already Exists", existingUser);
+  }
+
+  // Create new user from Clerk data
+  const clerkUser = await clerkClient.users.getUser(userId);
+  const userData = {
+    clerkId: userId,
+    email: clerkUser.emailAddresses[0].emailAddress,
+    firstName: clerkUser.firstName || "",
+    lastName: clerkUser.lastName || "",
+    username:
+      clerkUser.emailAddresses[0].emailAddress.split("@")[0] + Date.now(),
+    profilePicture: clerkUser.imageUrl || "",
+  };
+  const user = new User(userData);
+  return responseHandler(res, 201, "User Stored Successfully", user);
+});
+
+const getCurrentUser = asyncHandler(async (req, res) => {
+  const { userId } = getAuth(req);
+  const user = await User.findOne({ clerkId: userId });
+
+  if (!user) {
+    return errorHandler(res, "User Not Found", 404);
+  }
+
+  return responseHandler(res, 200, "User Gotten Successfully", user);
+});
+const followUser = asyncHandler(async (req, res) => {
+  const { userId } = getAuth(req);
+  const { targetUserId } = req.params;
+
+  // checks if userId and targerId are the same
+  if (userId === targetUserId)
+    return errorHandler(res, "You Cannot Follow Yourself", 400);
+
+  const currentUser = await User.findOne({ clerkId: userId });
+  const targetUser = await User.findById(targetUserId);
+
+  if (!currentUser || !targetUser)
+    return errorHandler(res, "User Not Found", 404);
+
+  // checks if current user is following target user already
+  const isFollowing = currentUser.following.includes(targetUserId);
+
+  if (isFollowing) {
+    // unfollows a user if following already
+    await User.findByIdAndUpdate(currentUser._id, {
+      $pull: { following: targetUserId },
+    });
+    await User.findByIdAndUpdate(targetUser._id, {
+      $pull: { followers: currentUser._id },
+    });
+
+    // create notification
+    await Notification.create({
+      from: currentUser._id,
+      to: targetUserId,
+      type: "follow",
+    });
+  } else {
+    // follows a user if not following
+    await User.findByIdAndUpdate(currentUser._id, {
+      $push: { following: targetUserId },
+    });
+    await User.findByIdAndUpdate(targetUser._id, {
+      $push: { followers: currentUser._id },
+    });
+
+    // create notification
+    await Notification.create({
+      from: currentUser._id,
+      to: targetUserId,
+      type: "follow",
+    });
+  }
+
+  return responseHandler(
+    res,
+    200,
+    isFollowing ? "User Unfollowed Successfully" : "User Followed Successfully",
+  );
+});
+
+export { getUserProfile, syncUser, getCurrentUser, updateProfile, followUser };
