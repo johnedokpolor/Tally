@@ -1,9 +1,10 @@
-const responseHandler = (
+const errorHandler = (
   res,
+  message = "Something Went Wrong",
   statusCode = 500,
-  message = "Something went wrong",
+  success = false,
 ) => {
-  return res.status(statusCode).json({ success: false, message });
+  return res.status(statusCode).json({ success, message });
 };
 
-export default responseHandler;
+export default errorHandler;
