@@ -21,7 +21,7 @@ const updateProfile = asyncHandler(async (req, res) => {
   const user = await User.findOneAndUpdate({ clerkId: userId }, req.body, {
     new: true,
   });
-  if (!user) errorHandler(res, "User Not Found", 404);
+  if (!user) return errorHandler(res, "User Not Found", 404);
   return responseHandler(res, 200, "User Updated Successfully", user);
 });
 
@@ -41,11 +41,11 @@ const syncUser = asyncHandler(async (req, res) => {
     email: clerkUser.emailAddresses[0].emailAddress,
     firstName: clerkUser.firstName || "",
     lastName: clerkUser.lastName || "",
-    username:
+    userName:
       clerkUser.emailAddresses[0].emailAddress.split("@")[0] + Date.now(),
     profilePicture: clerkUser.imageUrl || "",
   };
-  const user = new User(userData);
+  const user = await User.create(userData);
   return responseHandler(res, 201, "User Stored Successfully", user);
 });
 
@@ -88,7 +88,7 @@ const followUser = asyncHandler(async (req, res) => {
     // create notification
     await Notification.create({
       from: currentUser._id,
-      to: targetUserId,
+      to: targetUser._id,
       type: "follow",
     });
   } else {
@@ -103,7 +103,7 @@ const followUser = asyncHandler(async (req, res) => {
     // create notification
     await Notification.create({
       from: currentUser._id,
-      to: targetUserId,
+      to: targetUser._id,
       type: "follow",
     });
   }

@@ -1,8 +1,8 @@
-import responseHandler from "./responseHandler.js";
+import errorHandler from "./errorHandler.js";
 
 export const protectRoute = (req, res, next) => {
   if (!req.auth().isAuthenticated) {
-    return responseHandler(res, 401, "Unauthorised - you must be logged in");
+    return errorHandler(res, "Unauthorised - you must be logged in", 401);
   }
   next();
 };

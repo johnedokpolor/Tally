@@ -1,4 +1,4 @@
-const responseHandler = (res, statusCode, message, data, success = "true") => {
+const responseHandler = (res, statusCode, message, data, success = true) => {
   return res.status(statusCode).json({ success, message, data });
 };
 
