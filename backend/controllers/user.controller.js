@@ -7,12 +7,11 @@ import { clerkClient, getAuth } from "@clerk/express";
 
 const getUserProfile = asyncHandler(async (req, res) => {
   const { username } = req.params;
-  const user = await User.findOne({ userName: username });
+  const user = await User.find({ userName: username });
 
   if (!user) {
     return errorHandler(res, "User Not Found", 404);
   }
-
   return responseHandler(res, 200, "User Gotten Successfully", user);
 });
 
