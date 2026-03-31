@@ -14,7 +14,7 @@ export const getPosts = asyncHandler(async (req, res) => {
     .sort({ createdAt: -1 })
     .populate("user", "userName firstName lastName profilePicture")
     .populate({
-      path: "comment",
+      path: "comments",
       populate: {
         path: "user",
         select: "userName firstName lastName profilePicture",
@@ -30,7 +30,7 @@ export const getPost = asyncHandler(async (req, res) => {
   const post = await Post.findById(postId)
     .populate("user", "userName firstName lastName profilePicture")
     .populate({
-      path: "comment",
+      path: "comments",
       populate: {
         path: "user",
         select: "userName firstName lastName profilePicture",
@@ -49,7 +49,7 @@ export const getUserPosts = asyncHandler(async (req, res) => {
   const posts = await Post.find({ user: user._id })
     .populate("user", "userName firstName lastName profilePicture")
     .populate({
-      path: "comment",
+      path: "comments",
       populate: {
         path: "user",
         select: "userName firstName lastName profilePicture",
@@ -76,7 +76,9 @@ export const createPost = asyncHandler(async (req, res) => {
   if (imageFile) {
     try {
       //convert buffer to base64 for cloudinary
-      const base64Image = `data:image/jpeg;base64,${imageFile.buffer.toString("base64")}`;
+      const base64Image = `data:${imageFile.mimetype};base64,${imageFile.buffer.toString("base64")}`;
+
+      //
       const uploadedResponse = await cloudinary.uploader.upload(base64Image, {
         folder: "tally_posts",
         resource_type: "image",
