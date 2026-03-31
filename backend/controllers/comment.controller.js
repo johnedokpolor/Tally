@@ -9,7 +9,7 @@ import { Notification } from "../models/notification.model.js";
 
 export const getComments = asyncHandler(async (req, res) => {
   const { postId } = req.params;
-  const comments = await Commentent.find({ post: postId })
+  const comments = await Comment.find({ post: postId })
     .sort({ createdAt: -1 })
     .populate("user", "username firstName lastName");
 
@@ -29,7 +29,7 @@ export const createComment = asyncHandler(async (req, res) => {
   if (!user || !post) return errorHandler(res, "User or Post not Found", 404);
 
   const comment = await Comment.create({
-    user: userId,
+    user: user._id,
     post: postId,
     content,
   });
@@ -42,7 +42,7 @@ export const createComment = asyncHandler(async (req, res) => {
     await Notification.create({
       from: user._id,
       to: post.user,
-      comments: [comment._id],
+      comment: comment._id,
       type: "comment",
     });
   }
@@ -58,20 +58,22 @@ export const updateComment = asyncHandler(async (req, res) => {
     _id: commentId,
     createdAt: { $gt: fiveMinutesAgo },
   });
-  const user = User.findOne({ clerkId: userId });
+  const user = await User.findOne({ clerkId: userId });
   if (!comment)
     return errorHandler(res, "Comment Not Found or Edit Window Expired", 400);
   if (!content.trim())
     return errorHandler(res, "Comment Must Contain Content", 400);
+  if (comment.user.toString() !== user._id.toString())
+    return errorHandler(res, "You Can Only Edit Your Posts");
 
   comment.content = content;
   comment.isEdited = true;
-  comment.save();
+  await comment.save();
 
   return responseHandler(res, 201, "Comment Edited Successfully", comment);
 });
 export const deleteComment = asyncHandler(async (req, res) => {
-  const { commentId } = req.body;
+  const { commentId } = req.params;
   const { userId } = getAuth(req);
 
   const comment = await Comment.findById(commentId);
@@ -90,6 +92,6 @@ export const deleteComment = asyncHandler(async (req, res) => {
   });
   // delete notifications triggered by the comment
   await Notification.deleteMany({ comment: commentId });
-  await Comment.delete();
+  await Comment.deleteOne();
   return responseHandler(res, 201, "Comment Deleted Successfully", comment);
 });
