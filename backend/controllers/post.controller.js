@@ -21,7 +21,7 @@ export const getPosts = asyncHandler(async (req, res) => {
       }, // goes into the comment array and populates each comment with it's author(a user)
     });
 
-  if (!posts) return errorHandler(res, "No Posts Found", 404);
+  if (posts.length === 0) return errorHandler(res, "No Posts Found", 404);
   return responseHandler(res, 200, "Posts Gotten Successfully", posts);
 });
 
@@ -41,8 +41,8 @@ export const getPost = asyncHandler(async (req, res) => {
 });
 
 export const getUserPosts = asyncHandler(async (req, res) => {
-  const { userName } = req.params;
-  const user = await User.findOne({ userName });
+  const { username } = req.params;
+  const user = await User.findOne({ username });
 
   if (!user) return errorHandler(res, "User Not Found", 404);
 
@@ -65,7 +65,7 @@ export const createPost = asyncHandler(async (req, res) => {
   const imageFile = req.file;
 
   // Checks if content or image is available
-  if (!content?.trim() || !imageFile)
+  if (!content?.trim() && !imageFile)
     return errorHandler(res, "Post Must Contain Either Text or Image ", 400);
 
   const user = await User.findOne({ clerkId: userId });
@@ -143,19 +143,27 @@ export const likePost = asyncHandler(async (req, res) => {
   if (isLiked) {
     // unlike a post if liked already
     await Post.findByIdAndUpdate(postId, { $pull: { likes: user._id } });
+    // create notification if not unliking your own post
+    if (post.user.toString() !== user._id.toString()) {
+      await Notification.create({
+        from: user._id,
+        to: post.user,
+        type: "unlike",
+        post: postId,
+      });
+    }
   } else {
     // like a post if unlked already
     await Post.findByIdAndUpdate(postId, { $push: { likes: user._id } });
-  }
-
-  // create notification if not liking your own post
-  if (post.user.toString() !== user._id.toString()) {
-    await Notification.create({
-      from: user._id,
-      to: post.user,
-      type: "like",
-      post: postId,
-    });
+    // create notification if not liking your own post
+    if (post.user.toString() !== user._id.toString()) {
+      await Notification.create({
+        from: user._id,
+        to: post.user,
+        type: "like",
+        post: postId,
+      });
+    }
   }
 
   return responseHandler(
@@ -210,6 +218,7 @@ export const updatePost = asyncHandler(async (req, res) => {
   }
   post.content = content || post.content;
   post.image = imageUrl;
+  post.isEdited = true;
 
   await post.save();
   // Checks if other users were mentioned

@@ -18,7 +18,7 @@ router.get("/:username", getUserPosts);
 router
   .route("/:postId")
   .get(getPost)
-  .put(protectRoute, updatePost) // Protected
+  .put(protectRoute, upload.single("image"), updatePost) // Protected
   .delete(protectRoute, deletePost); // Protected
 
 // Private Routes

@@ -84,7 +84,12 @@ const followUser = asyncHandler(async (req, res) => {
       $pull: { followers: currentUser._id },
     });
 
-    // TODO: delete notification if exists
+    // create notification
+    await Notification.create({
+      from: currentUser._id,
+      to: targetUser._id,
+      type: "unfollow",
+    });
   } else {
     // follows a user if not following
     await User.findByIdAndUpdate(currentUser._id, {
