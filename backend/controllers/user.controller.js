@@ -7,7 +7,7 @@ import { clerkClient, getAuth } from "@clerk/express";
 
 const getUserProfile = asyncHandler(async (req, res) => {
   const { username } = req.params;
-  const user = await User.find({ userName: username });
+  const user = await User.findOne({ userName: username });
 
   if (!user) {
     return errorHandler(res, "User Not Found", 404);
@@ -84,12 +84,7 @@ const followUser = asyncHandler(async (req, res) => {
       $pull: { followers: currentUser._id },
     });
 
-    // create notification
-    await Notification.create({
-      from: currentUser._id,
-      to: targetUser._id,
-      type: "follow",
-    });
+    // TODO: delete notification if exists
   } else {
     // follows a user if not following
     await User.findByIdAndUpdate(currentUser._id, {

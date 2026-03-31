@@ -18,8 +18,8 @@ app.use("/api/users", userRoutes);
 app.use("/api/users", postsRoutes);
 app.use("/api/users", notificationRoutes);
 app.use("/api/users", commentRoutes);
-// initDB();
+initDB();
 
 app.listen(ENV.PORT, () => {
-  console.log(`Server is listen ing on port ${ENV.PORT}`);
+  console.log(`Server is listening on port ${ENV.PORT}`);
 });

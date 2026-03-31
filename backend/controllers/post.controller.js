@@ -3,6 +3,9 @@ import errorHandler from "../middlewares/errorHandler.js";
 import responseHandler from "../middlewares/responseHandler.js";
 import { Post } from "../models/post.model.js";
 import { User } from "../models/user.model.js";
+import { Notification } from "../models/notification.model.js";
+import { Comment } from "../models/comment.model.js";
+
 import { getAuth } from "@clerk/express";
 import cloudinary from "../config/cloudinary.js";
 
@@ -24,7 +27,7 @@ export const getPosts = asyncHandler(async (req, res) => {
 
 export const getPost = asyncHandler(async (req, res) => {
   const { postId } = req.params;
-  const post = await Post.findbyId(postId)
+  const post = await Post.findById(postId)
     .populate("user", "userName firstName lastName profilePicture")
     .populate({
       path: "comment",
@@ -39,7 +42,7 @@ export const getPost = asyncHandler(async (req, res) => {
 
 export const getUserPosts = asyncHandler(async (req, res) => {
   const { userName } = req.params;
-  const user = await User.find({ userName });
+  const user = await User.findOne({ userName });
 
   if (!user) return errorHandler(res, "User Not Found", 404);
 
@@ -62,10 +65,10 @@ export const createPost = asyncHandler(async (req, res) => {
   const imageFile = req.file;
 
   // Checks if content or image is available
-  if (!content || !imageFile)
+  if (!content?.trim() || !imageFile)
     return errorHandler(res, "Post Must Contain Either Text or Image ", 400);
 
-  const user = await User.find({ clerkId: userId });
+  const user = await User.findOne({ clerkId: userId });
   if (!user) return errorHandler(res, "User Not Found", 404);
 
   let imageUrl = "";
@@ -73,7 +76,7 @@ export const createPost = asyncHandler(async (req, res) => {
   if (imageFile) {
     try {
       //convert buffer to base64 for cloudinary
-      const base64Image = `${data.now()}-${imageFile.buffer.toString("base64")}`;
+      const base64Image = `data:image/jpeg;base64,${imageFile.buffer.toString("base64")}`;
       const uploadedResponse = await cloudinary.uploader.upload(base64Image, {
         folder: "tally_posts",
         resource_type: "image",
@@ -87,11 +90,11 @@ export const createPost = asyncHandler(async (req, res) => {
       imageUrl = uploadedResponse.secure_url;
     } catch (error) {
       console.error(error);
-      errorHandler(res, error.message, 400);
+      return errorHandler(res, error.message, 400);
     }
   }
 
-  const post = Post.create({
+  const post = await Post.create({
     user: user._id,
     content: content || "",
     image: imageUrl,
@@ -100,7 +103,7 @@ export const createPost = asyncHandler(async (req, res) => {
   // Checks if other users were mentioned
   const mentions =
     content
-      .match(/@\w+/g)
+      ?.match(/[@][\w\-_.]+/g)
       ?.map((mention) => mention.toLowerCase().replace("@", "")) || [];
 
   if (mentions.length > 0) {
@@ -108,18 +111,21 @@ export const createPost = asyncHandler(async (req, res) => {
     const taggedUsers = await User.find({ userName: { $in: mentions } });
 
     // creates an array of notification promises
-    const notificationPromises = taggedUsers.map((taggedUser) => {
-      if (taggedUser.id.toString() !== user._id) {
-        return Notification.create({
-          from: user._id,
-          to: taggedUser._id,
-          type: "tag",
-          post: post._id,
-        });
-      }
-      // resolves all the promises
-      Promise.all(notificationPromises);
-    });
+    const notificationPromises = taggedUsers
+      .map((taggedUser) => {
+        if (taggedUser._id.toString() !== user._id.toString()) {
+          return Notification.create({
+            from: user._id,
+            to: taggedUser._id,
+            type: "tag",
+            post: post._id,
+          });
+        }
+      })
+      .filter(Boolean); // filter out undefined
+
+    // resolves all the promises
+    await Promise.all(notificationPromises);
   }
 
   return responseHandler(res, 201, "Posts Created Successfully", post);
@@ -130,7 +136,7 @@ export const likePost = asyncHandler(async (req, res) => {
   const { userId } = getAuth(req);
 
   const post = await Post.findById(postId);
-  const user = await Post.find({ clerkId: userId });
+  const user = await User.findOne({ clerkId: userId });
   if (!post || !user) return errorHandler(res, "Post or User Not Found", 404);
 
   const isLiked = post.likes.includes(user._id);
@@ -168,11 +174,11 @@ export const updatePost = asyncHandler(async (req, res) => {
   const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 
   // Checks if content or image is available
-  if (!content || !imageFile)
+  if (!content && !imageFile)
     return errorHandler(res, "Post Must Contain Either Text or Image ", 400);
 
-  const user = await User.find({ clerkId: userId });
-  const post = await Post.find({
+  const user = await User.findOne({ clerkId: userId });
+  const post = await Post.findOne({
     _id: postId,
     createdAt: { $gt: fiveMinutesAgo },
   });
@@ -180,12 +186,12 @@ export const updatePost = asyncHandler(async (req, res) => {
   if (!post)
     return errorHandler(res, " Post Not Found or Edit Window expired", 404);
 
-  let imageUrl = "";
+  let imageUrl = post.image; // keep existing if no new image
 
   if (imageFile) {
     try {
       //convert buffer to base64 for cloudinary
-      const base64Image = `${data.now()}-${imageFile.buffer.toString("base64")}`;
+      const base64Image = `data:image/jpeg;base64,${imageFile.buffer.toString("base64")}`;
       const uploadedResponse = await cloudinary.uploader.upload(base64Image, {
         folder: "tally_posts",
         resource_type: "image",
@@ -199,18 +205,17 @@ export const updatePost = asyncHandler(async (req, res) => {
       imageUrl = uploadedResponse.secure_url;
     } catch (error) {
       console.error(error);
-      errorHandler(res, error.message, 400);
+      return errorHandler(res, error.message, 400);
     }
   }
-  post.user = user._id;
-  post.content = content || "";
-  post.image = imageUrl || "";
+  post.content = content || post.content;
+  post.image = imageUrl;
 
   await post.save();
   // Checks if other users were mentioned
   const mentions =
     content
-      .match(/@\w+/g)
+      ?.match(/[@][\w\-_.]+/g)
       ?.map((mention) => mention.toLowerCase().replace("@", "")) || [];
 
   if (mentions.length > 0) {
@@ -218,18 +223,21 @@ export const updatePost = asyncHandler(async (req, res) => {
     const taggedUsers = await User.find({ userName: { $in: mentions } });
 
     // creates an array of notification promises
-    const notificationPromises = taggedUsers.map((taggedUser) => {
-      if (taggedUser.id.toString() !== user._id) {
-        return Notification.create({
-          from: user._id,
-          to: taggedUser._id,
-          type: "tag",
-          post: post._id,
-        });
-      }
-      // resolves all the promises
-      Promise.all(notificationPromises);
-    });
+    const notificationPromises = taggedUsers
+      .map((taggedUser) => {
+        if (taggedUser._id.toString() !== user._id.toString()) {
+          return Notification.create({
+            from: user._id,
+            to: taggedUser._id,
+            type: "tag",
+            post: post._id,
+          });
+        }
+      })
+      .filter(Boolean); // filter out undefined
+
+    // resolves all the promises
+    await Promise.all(notificationPromises);
   }
 
   return responseHandler(res, 201, "Post Updated Successfully", post);
@@ -238,8 +246,8 @@ export const updatePost = asyncHandler(async (req, res) => {
 export const deletePost = asyncHandler(async (req, res) => {
   const { postId } = req.params;
   const { userId } = getAuth(req);
-  const post = await Post.findbyId(postId);
-  const user = await Post.find({ clerkId: userId });
+  const post = await Post.findById(postId);
+  const user = await User.findOne({ clerkId: userId });
 
   if (!post || !user) return errorHandler(res, "Post or User Not Found", 404);
   if (post.user.toString() !== user._id.toString()) {
@@ -250,7 +258,7 @@ export const deletePost = asyncHandler(async (req, res) => {
   await Notification.deleteMany({ post: postId });
 
   // delete post
-  post.delete();
+  await post.deleteOne();
 
   return responseHandler(res, 200, "Post Deleted Successfully");
 });
