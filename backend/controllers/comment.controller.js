@@ -70,7 +70,7 @@ export const updateComment = asyncHandler(async (req, res) => {
   comment.isEdited = true;
   await comment.save();
 
-  return responseHandler(res, 201, "Comment Edited Successfully", comment);
+  return responseHandler(res, 200, "Comment Edited Successfully", comment);
 });
 export const deleteComment = asyncHandler(async (req, res) => {
   const { commentId } = req.params;
@@ -93,5 +93,5 @@ export const deleteComment = asyncHandler(async (req, res) => {
   // delete notifications triggered by the comment
   await Notification.deleteMany({ comment: commentId });
   await Comment.deleteOne();
-  return responseHandler(res, 201, "Comment Deleted Successfully", comment);
+  return responseHandler(res, 200, "Comment Deleted Successfully", comment);
 });
