@@ -12,7 +12,6 @@ const getUserProfile = asyncHandler(async (req, res) => {
   if (!user) {
     return errorHandler(res, "User Not Found", 404);
   }
-
   return responseHandler(res, 200, "User Gotten Successfully", user);
 });
 
@@ -89,7 +88,7 @@ const followUser = asyncHandler(async (req, res) => {
     await Notification.create({
       from: currentUser._id,
       to: targetUser._id,
-      type: "follow",
+      type: "unfollow",
     });
   } else {
     // follows a user if not following
