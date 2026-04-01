@@ -14,7 +14,7 @@ const router = express.Router();
 
 // Public Routes
 router.get("/", getPosts);
-router.get("/:username", getUserPosts);
+router.get("/user/:username", getUserPosts);
 router
   .route("/:postId")
   .get(getPost)
