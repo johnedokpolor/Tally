@@ -1,3 +1,4 @@
+import { aj } from "../config/arcjet.js";
 export const arcjetMiddlware = async (req, res, next) => {
   try {
     const decison = await aj.protect(req, {
