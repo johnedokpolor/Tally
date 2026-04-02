@@ -12,12 +12,12 @@ import cloudinary from "../config/cloudinary.js";
 export const getPosts = asyncHandler(async (req, res) => {
   const posts = await Post.find({})
     .sort({ createdAt: -1 })
-    .populate("user", "userName firstName lastName profilePicture")
+    .populate("user", "username firstName lastName profilePicture")
     .populate({
       path: "comments",
       populate: {
         path: "user",
-        select: "userName firstName lastName profilePicture",
+        select: "username firstName lastName profilePicture",
       }, // goes into the comment array and populates each comment with it's author(a user)
     });
 
@@ -28,12 +28,12 @@ export const getPosts = asyncHandler(async (req, res) => {
 export const getPost = asyncHandler(async (req, res) => {
   const { postId } = req.params;
   const post = await Post.findById(postId)
-    .populate("user", "userName firstName lastName profilePicture")
+    .populate("user", "username firstName lastName profilePicture")
     .populate({
       path: "comments",
       populate: {
         path: "user",
-        select: "userName firstName lastName profilePicture",
+        select: "username firstName lastName profilePicture",
       }, // goes into the comment array and populates each comment with it's author(a user)
     });
   if (!post) return errorHandler(res, "Post Not Found", 404);
@@ -47,12 +47,12 @@ export const getUserPosts = asyncHandler(async (req, res) => {
   if (!user) return errorHandler(res, "User Not Found", 404);
 
   const posts = await Post.find({ user: user._id })
-    .populate("user", "userName firstName lastName profilePicture")
+    .populate("user", "username firstName lastName profilePicture")
     .populate({
       path: "comments",
       populate: {
         path: "user",
-        select: "userName firstName lastName profilePicture",
+        select: "username firstName lastName profilePicture",
       }, // goes into the comment array and populates each comment with it's author(a user)
     });
   if (!posts) return errorHandler(res, "User has no Posts", 404);
@@ -110,7 +110,7 @@ export const createPost = asyncHandler(async (req, res) => {
 
   if (mentions.length > 0) {
     // find users in the database by their usernames
-    const taggedUsers = await User.find({ userName: { $in: mentions } });
+    const taggedUsers = await User.find({ username: { $in: mentions } });
 
     // creates an array of notification promises
     const notificationPromises = taggedUsers
@@ -231,7 +231,7 @@ export const updatePost = asyncHandler(async (req, res) => {
 
   if (mentions.length > 0) {
     // find users in the database by their usernames
-    const taggedUsers = await User.find({ userName: { $in: mentions } });
+    const taggedUsers = await User.find({ username: { $in: mentions } });
 
     // creates an array of notification promises
     const notificationPromises = taggedUsers
