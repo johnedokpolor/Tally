@@ -3,7 +3,7 @@ import responseHandler from "../middlewares/responseHandler.js";
 import errorHandler from "../middlewares/errorHandler.js";
 import { User } from "../models/user.model.js";
 import { Notification } from "../models/notification.model.js";
-import { clerkClient } from "@clerk/express";
+import { clerkClient, getAuth } from "@clerk/express";
 
 const getUserProfile = asyncHandler(async (req, res) => {
   const { username } = req.params;
