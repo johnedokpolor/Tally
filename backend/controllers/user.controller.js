@@ -16,8 +16,7 @@ const getUserProfile = asyncHandler(async (req, res) => {
 });
 
 const updateProfile = asyncHandler(async (req, res) => {
-  const { userId } = getAuth(req);
-  const user = await User.findOneAndUpdate({ clerkId: userId }, req.body, {
+  const user = await User.findByIdAndUpdate(req.user._id, req.body, {
     new: true,
   });
   if (!user) return errorHandler(res, "User Not Found", 404);
@@ -49,54 +48,44 @@ const syncUser = asyncHandler(async (req, res) => {
 });
 
 const getCurrentUser = asyncHandler(async (req, res) => {
-  const { userId } = getAuth(req);
-  const user = await User.findOne({ clerkId: userId });
-
-  if (!user) {
-    return errorHandler(res, "User Not Found", 404);
-  }
-
-  return responseHandler(res, 200, "User Gotten Successfully", user);
+  return responseHandler(res, 200, "User Gotten Successfully", req.user);
 });
 const followUser = asyncHandler(async (req, res) => {
-  const { userId } = getAuth(req);
   const { targetUserId } = req.params;
 
   // checks if userId and targerId are the same
-  if (userId === targetUserId)
+  if (req.user._id === targetUserId)
     return errorHandler(res, "You Cannot Follow Yourself", 400);
 
-  const currentUser = await User.findOne({ clerkId: userId });
   const targetUser = await User.findById(targetUserId);
 
-  if (!currentUser || !targetUser)
-    return errorHandler(res, "User Not Found", 404);
+  if (!targetUser) return errorHandler(res, "User Not Found", 404);
 
   // checks if current user is following target user already
-  const isFollowing = currentUser.following.includes(targetUserId);
+  const isFollowing = req.user.following.includes(targetUserId);
 
   if (isFollowing) {
     // unfollows a user if following already
-    await User.findByIdAndUpdate(currentUser._id, {
+    await User.findByIdAndUpdate(req.user._id, {
       $pull: { following: targetUserId },
     });
     await User.findByIdAndUpdate(targetUser._id, {
-      $pull: { followers: currentUser._id },
+      $pull: { followers: req.user._id },
     });
 
     // create notification
     await Notification.create({
-      from: currentUser._id,
+      from: req.user._id,
       to: targetUser._id,
       type: "unfollow",
     });
   } else {
     // follows a user if not following
-    await User.findByIdAndUpdate(currentUser._id, {
+    await User.findByIdAndUpdate(req.user._id, {
       $push: { following: targetUserId },
     });
     await User.findByIdAndUpdate(targetUser._id, {
-      $push: { followers: currentUser._id },
+      $push: { followers: req.user._id },
     });
 
     // create notification
