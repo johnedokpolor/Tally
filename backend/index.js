@@ -15,6 +15,9 @@ app.use(cors());
 app.use(express.json());
 app.use(clerkMiddleware());
 app.use(arcjetMiddlware);
+app.get("/", (req, res) => {
+  return res.send("Welcome to Tally Server");
+});
 
 app.use("/api/users", userRoutes);
 app.use("/api/posts", postRoutes);
