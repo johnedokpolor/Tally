@@ -5,8 +5,6 @@ import { Post } from "../models/post.model.js";
 import { User } from "../models/user.model.js";
 import { Notification } from "../models/notification.model.js";
 import { Comment } from "../models/comment.model.js";
-
-import { getAuth } from "@clerk/express";
 import cloudinary from "../config/cloudinary.js";
 
 export const getPosts = asyncHandler(async (req, res) => {
@@ -60,16 +58,12 @@ export const getUserPosts = asyncHandler(async (req, res) => {
 });
 
 export const createPost = asyncHandler(async (req, res) => {
-  const { userId } = getAuth(req);
   const { content } = req.body;
   const imageFile = req.file;
 
   // Checks if content or image is available
   if (!content?.trim() && !imageFile)
     return errorHandler(res, "Post Must Contain Either Text or Image ", 400);
-
-  const user = await User.findOne({ clerkId: userId });
-  if (!user) return errorHandler(res, "User Not Found", 404);
 
   let imageUrl = "";
 
@@ -97,7 +91,7 @@ export const createPost = asyncHandler(async (req, res) => {
   }
 
   const post = await Post.create({
-    user: user._id,
+    user: req.user._id,
     content: content || "",
     image: imageUrl,
   });
@@ -115,9 +109,9 @@ export const createPost = asyncHandler(async (req, res) => {
     // creates an array of notification promises
     const notificationPromises = taggedUsers
       .map((taggedUser) => {
-        if (taggedUser._id.toString() !== user._id.toString()) {
+        if (taggedUser._id.toString() !== req.user._id.toString()) {
           return Notification.create({
-            from: user._id,
+            from: req.user._id,
             to: taggedUser._id,
             type: "tag",
             post: post._id,
@@ -135,20 +129,19 @@ export const createPost = asyncHandler(async (req, res) => {
 
 export const likePost = asyncHandler(async (req, res) => {
   const { postId } = req.params;
-  const { userId } = getAuth(req);
 
   const post = await Post.findById(postId);
-  const user = await User.findOne({ clerkId: userId });
-  if (!post || !user) return errorHandler(res, "Post or User Not Found", 404);
 
-  const isLiked = post.likes.includes(user._id);
+  if (!post) return errorHandler(res, "Post Not Found", 404);
+
+  const isLiked = post.likes.includes(req.user._id);
   if (isLiked) {
     // unlike a post if liked already
-    await Post.findByIdAndUpdate(postId, { $pull: { likes: user._id } });
+    await Post.findByIdAndUpdate(postId, { $pull: { likes: req.user._id } });
     // create notification if not unliking your own post
-    if (post.user.toString() !== user._id.toString()) {
+    if (post.user.toString() !== req.user._id.toString()) {
       await Notification.create({
-        from: user._id,
+        from: req.user._id,
         to: post.user,
         type: "unlike",
         post: postId,
@@ -156,11 +149,11 @@ export const likePost = asyncHandler(async (req, res) => {
     }
   } else {
     // like a post if unlked already
-    await Post.findByIdAndUpdate(postId, { $push: { likes: user._id } });
+    await Post.findByIdAndUpdate(postId, { $push: { likes: req.user._id } });
     // create notification if not liking your own post
-    if (post.user.toString() !== user._id.toString()) {
+    if (post.user.toString() !== req.user._id.toString()) {
       await Notification.create({
-        from: user._id,
+        from: req.user._id,
         to: post.user,
         type: "like",
         post: postId,
@@ -176,7 +169,6 @@ export const likePost = asyncHandler(async (req, res) => {
   );
 });
 export const updatePost = asyncHandler(async (req, res) => {
-  const { userId } = getAuth(req);
   const { postId } = req.params;
   const { content } = req.body;
   const imageFile = req.file;
@@ -187,12 +179,11 @@ export const updatePost = asyncHandler(async (req, res) => {
   if (!content && !imageFile)
     return errorHandler(res, "Post Must Contain Either Text or Image ", 400);
 
-  const user = await User.findOne({ clerkId: userId });
   const post = await Post.findOne({
     _id: postId,
     createdAt: { $gt: fiveMinutesAgo },
   });
-  if (!user) return errorHandler(res, "User Not Found", 404);
+
   if (!post)
     return errorHandler(res, " Post Not Found or Edit Window expired", 404);
 
@@ -236,9 +227,9 @@ export const updatePost = asyncHandler(async (req, res) => {
     // creates an array of notification promises
     const notificationPromises = taggedUsers
       .map((taggedUser) => {
-        if (taggedUser._id.toString() !== user._id.toString()) {
+        if (taggedUser._id.toString() !== req.user._id.toString()) {
           return Notification.create({
-            from: user._id,
+            from: req.user._id,
             to: taggedUser._id,
             type: "tag",
             post: post._id,
@@ -256,12 +247,10 @@ export const updatePost = asyncHandler(async (req, res) => {
 
 export const deletePost = asyncHandler(async (req, res) => {
   const { postId } = req.params;
-  const { userId } = getAuth(req);
   const post = await Post.findById(postId);
-  const user = await User.findOne({ clerkId: userId });
 
-  if (!post || !user) return errorHandler(res, "Post or User Not Found", 404);
-  if (post.user.toString() !== user._id.toString()) {
+  if (!post) return errorHandler(res, "Post Not Found", 404);
+  if (post.user.toString() !== req.user._id.toString()) {
     return errorHandler(res, "You can only delete your own posts", 400);
   }
   // delete all comments and notifications for this post

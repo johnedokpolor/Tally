@@ -1,18 +1,11 @@
-import { getAuth } from "@clerk/express";
 import asyncHandler from "../middlewares/asyncHandler.js";
 import responseHandler from "../middlewares/responseHandler.js";
 import { Notification } from "../models/notification.model.js";
-import { User } from "../models/user.model.js";
 import errorHandler from "../middlewares/errorHandler.js";
 
 export const getNotifications = asyncHandler(async (req, res) => {
-  const { userId } = getAuth(req);
-
-  const user = await User.findOne({ clerkId: userId });
-  if (!user) return errorHandler(res, "User Not Found", 404);
-
   const notifications = await Notification.find({
-    to: user._id,
+    to: req.user._id,
   })
     .sort({ createdAt: -1 })
     .populate("from", "username firstName lastName profilePicture")
@@ -30,13 +23,9 @@ export const getNotifications = asyncHandler(async (req, res) => {
 });
 export const deleteNotification = asyncHandler(async (req, res) => {
   const { notificationId } = req.params;
-  const { userId } = getAuth(req);
-
-  const user = User.findOne({ clerkId: userId });
-  if (!user) return errorHandler(res, "User Not Found", 404);
 
   const notification = Notification.findByIdAndDelete({
-    to: user._id,
+    to: req.user._id,
     _id: notificationId,
   });
 
