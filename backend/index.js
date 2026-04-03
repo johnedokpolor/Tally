@@ -22,7 +22,13 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/comments", commentRoutes);
 
 initDB().then(() => {
-  app.listen(ENV.PORT, () => {
-    console.log(`Server is listening on port ${ENV.PORT}`);
-  });
+  // only listen when in development
+  if (ENV.NODE_ENV !== "production") {
+    app.listen(ENV.PORT, () => {
+      console.log(`Server is listening on port ${ENV.PORT}`);
+    });
+  }
 });
+
+// export for Vercel
+export default app;
