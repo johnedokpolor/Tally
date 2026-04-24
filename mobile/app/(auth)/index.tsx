@@ -73,7 +73,6 @@ export default function App() {
   );
 }
 
-// TODO:Search activity indicator, Ionicons, button vs touchableopacity
 const style = StyleSheet.create({
   header: {
     color: "red",

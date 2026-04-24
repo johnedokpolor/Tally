@@ -1,6 +1,6 @@
 import { useSSO } from "@clerk/expo";
-import React, { useState } from "react";
-import { View, Text, Alert } from "react-native";
+import { useState } from "react";
+import { Alert } from "react-native";
 
 const useSocialAuth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -27,6 +27,5 @@ const useSocialAuth = () => {
   };
   return { isLoading, handleSocialAuth };
 };
-// TODO: search on Alert in react native
 
 export default useSocialAuth;
